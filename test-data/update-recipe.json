@@ -1,0 +1,11 @@
+{
+    "body": "{ \"title\": \"testing 123\", \"ingredients\": \"- foo\\n - bar\\n\", \"directions\": \"- baz\\n - qux\\n\", \"tags\": [\"foo\"] }",
+    "requestContext": {
+        "authorizer": {
+            "claims": {
+                "name": "Austin Kurpuis",
+                "email": "austin@austinkurpuis.com"
+            }
+        }
+    }
+}

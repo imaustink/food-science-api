@@ -1,0 +1,184 @@
+service: food-science-api
+frameworkVersion: '3'
+
+plugins:
+  - serverless-localstack
+
+useDotenv: true
+
+custom:
+  localstack:
+    stages:
+      - local
+    lambda:
+      mountCode: true
+    autostart: false
+
+provider:
+  name: aws
+  runtime: nodejs14.x
+  environment:
+    USER_POOL_ID: { Ref: UserPool }
+    CLIENT_ID: { Ref: UserClient }
+    RECIPES_TABLE_NAME: ${self:resources.Resources.RecipesTable.Properties.TableName}
+    README_FILEPATH: ${env:README_FILEPATH}
+    RECIPES_DIRECTORY: ${env:RECIPES_DIRECTORY}
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - cognito-idp:AdminInitiateAuth
+        - cognito-idp:AdminCreateUser
+        - cognito-idp:AdminSetUserPassword
+      Resource: '*'
+    - Effect: Allow
+      Action:
+        - dynamodb:*
+      Resource: '*'
+functions:
+  loginUser:
+    handler: handlers/users/login.handler
+    events:
+      - http:
+          path: login
+          method: post
+          cors: true
+
+  createUser:
+    handler: handlers/users/create.handler
+    events:
+      - http:
+          path: users
+          method: post
+          cors: true
+          authorizer:
+            name: PrivateAuthorizer
+            type: COGNITO_USER_POOLS
+            arn:
+              Fn::GetAtt:
+                - UserPool
+                - Arn
+            claims:
+              - email
+              - name
+
+  createRecipe:
+    handler: handlers/recipes/create.handler
+    environment:
+      GITHUB_USER: ${env:GITHUB_USER}
+      GITHUB_PASSWORD: ${env:GITHUB_PASSWORD}
+      GITHUB_REPO: ${env:GITHUB_REPO}
+    events:
+      - http:
+          path: recipes
+          method: post
+          cors: true
+          authorizer:
+            name: PrivateAuthorizer
+            type: COGNITO_USER_POOLS
+            arn:
+              Fn::GetAtt:
+                - UserPool
+                - Arn
+            claims:
+              - email
+              - name
+  readManyRecipes:
+    handler: handlers/recipes/readMany.handler
+    events:
+      - http:
+          path: recipes
+          method: get
+          cors: true
+          authorizer:
+            name: PrivateAuthorizer
+            type: COGNITO_USER_POOLS
+            arn:
+              Fn::GetAtt:
+                - UserPool
+                - Arn
+            claims:
+              - email
+              - name
+  readOneRecipe:
+    handler: handlers/recipes/readOne.handler
+    events:
+      - http:
+          path: recipes/{uuid}
+          method: get
+          cors: true
+          authorizer:
+            name: PrivateAuthorizer
+            type: COGNITO_USER_POOLS
+            arn:
+              Fn::GetAtt:
+                - UserPool
+                - Arn
+            claims:
+              - email
+              - name
+  updateOneRecipe:
+    handler: handlers/recipes/updateOne.handler
+    environment:
+      GITHUB_USER: ${env:GITHUB_USER}
+      GITHUB_PASSWORD: ${env:GITHUB_PASSWORD}
+      GITHUB_REPO: ${env:GITHUB_REPO}
+    events:
+      - http:
+          path: recipes/{uuid}
+          method: patch
+          cors: true
+          authorizer:
+            name: PrivateAuthorizer
+            type: COGNITO_USER_POOLS
+            arn:
+              Fn::GetAtt:
+                - UserPool
+                - Arn
+            claims:
+              - email
+              - name
+resources:
+  Resources:
+    UserPool:
+      Type: AWS::Cognito::UserPool
+      Properties:
+        UserPoolName: serverless-auth-pool
+        UsernameAttributes: ["email"]
+        Schema:
+          - Name: email
+            Required: true
+            Mutable: true
+          - Name: name
+            Required: true
+            Mutable: false
+        Policies:
+          PasswordPolicy:
+            MinimumLength: 6
+        AutoVerifiedAttributes: ["email"]
+
+    UserClient:
+      Type: AWS::Cognito::UserPoolClient
+      Properties:
+        ClientName: user-pool-ui
+        GenerateSecret: false
+        UserPoolId: { Ref: UserPool }
+        AccessTokenValidity: 5
+        IdTokenValidity: 5
+        ExplicitAuthFlows:
+          - "ADMIN_NO_SRP_AUTH"
+
+    RecipesTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:service}-${opt:stage, 'development'}-recipes
+        AttributeDefinitions:
+          - AttributeName: uuid
+            AttributeType: S
+          - AttributeName: createdDate
+            AttributeType: N
+        BillingMode: PAY_PER_REQUEST
+        KeySchema:
+          - AttributeName: uuid
+            KeyType: HASH
+          - AttributeName: createdDate
+            KeyType: RANGE
