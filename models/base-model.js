@@ -1,3 +1,5 @@
+"use strict";
+
 class DynamoDBModel {
   constructor({ tableName, client }) {
     this.tableName = tableName;
@@ -13,7 +15,7 @@ class DynamoDBModel {
   }
 
   put(update) {
-    return dynamoClient.put({
+    return this.client.put({
       TableName: this.tableName,
       Item: update
     });
@@ -52,9 +54,7 @@ class QueryInterface {
       ExclusiveStartKey: this.nextToken,
       ...this.selectStatement
     };
-    console.log(params);
     const result = await this.model.client[this.method](params);
-    console.log(result);
     const { Items: items, LastEvaluatedKey: nextToken } = result;
 
     return { items, nextToken };
@@ -72,8 +72,8 @@ class QueryInterface {
   }
 
   get keyConditionExpression() {
-    return this.isQuery ? Object.entries(this.query)
-      .map(([fieldName, fieldValue]) => `#${fieldName} = :${fieldName}Value`)
+    return this.isQuery ? Object.keys(this.query)
+      .map((fieldName) => `#${fieldName} = :${fieldName}Value`)
       .join(" AND ") : undefined;
   }
 
@@ -93,5 +93,6 @@ class QueryInterface {
 }
 
 module.exports = {
-  DynamoDBModel
+  DynamoDBModel,
+  QueryInterface
 };

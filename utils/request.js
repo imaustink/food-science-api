@@ -1,3 +1,5 @@
+"use strict";
+
 class Request {
   constructor(event) {
     const { body, httpMethod, queryStringParameters, pathParameters, headers } = event;

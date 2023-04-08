@@ -1,18 +1,7 @@
 service: food-science-api
 frameworkVersion: '3'
 
-plugins:
-  - serverless-localstack
-
 useDotenv: true
-
-custom:
-  localstack:
-    stages:
-      - local
-    lambda:
-      mountCode: true
-    autostart: false
 
 provider:
   name: aws
@@ -23,6 +12,7 @@ provider:
     RECIPES_TABLE_NAME: ${self:resources.Resources.RecipesTable.Properties.TableName}
     README_FILEPATH: ${env:README_FILEPATH}
     RECIPES_DIRECTORY: ${env:RECIPES_DIRECTORY}
+    GITHUB_BRANCH: ${env:GITHUB_BRANCH}
   iamRoleStatements:
     - Effect: Allow
       Action:
@@ -65,7 +55,7 @@ functions:
     handler: handlers/recipes/create.handler
     environment:
       GITHUB_USER: ${env:GITHUB_USER}
-      GITHUB_PASSWORD: ${env:GITHUB_PASSWORD}
+      GITHUB_TOKEN: ${env:GITHUB_TOKEN}
       GITHUB_REPO: ${env:GITHUB_REPO}
     events:
       - http:
@@ -116,11 +106,11 @@ functions:
             claims:
               - email
               - name
-  updateOneRecipe:
-    handler: handlers/recipes/updateOne.handler
+  updateRecipe:
+    handler: handlers/recipes/update.handler
     environment:
       GITHUB_USER: ${env:GITHUB_USER}
-      GITHUB_PASSWORD: ${env:GITHUB_PASSWORD}
+      GITHUB_TOKEN: ${env:GITHUB_TOKEN}
       GITHUB_REPO: ${env:GITHUB_REPO}
     events:
       - http:

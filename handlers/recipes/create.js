@@ -4,17 +4,18 @@ const path = require("path");
 
 const { Request } = require("../../utils/request");
 const { Response } = require("../../utils/response");
-const { dynamoClient } = require("../../utils/aws");
+const { dynamoClient } = require("../../aws/dynamo");
 const { encodeURL } = require("../../utils/formatting");
-const { generateRecipeMarkdown } = require("../../utils/markdown");
+const { generateRecipeMarkdown, generateToCItem } = require("../../markdown/markdown");
 
 const { v4: createUuid } = require("uuid");
-const { GitRepo } = require("../../utils/git");
+const { GitRepo } = require("../../git/git");
 
 const {
   GITHUB_USER,
-  GITHUB_PASSWORD,
+  GITHUB_TOKEN,
   GITHUB_REPO,
+  GITHUB_BRANCH,
   RECIPES_TABLE_NAME,
   README_FILEPATH,
   RECIPES_DIRECTORY
@@ -44,15 +45,16 @@ module.exports.handler = async (event) => {
   // Special characters break GH pages default theme
   const markdownFilename = encodeURL(title + ".md");
   const markdownPath = path.join(RECIPES_DIRECTORY, markdownFilename);
-  const tableOfContentsItem = `- [${title}](${markdownPath})\n`;
+  const tableOfContentsItem = generateToCItem(title, markdownPath);
 
   const gitRepo = new GitRepo({
     url: GITHUB_REPO,
-    branch: "master",
-    credentials: { username: GITHUB_USER, password: GITHUB_PASSWORD }
+    branch: GITHUB_BRANCH,
+    credentials: { username: GITHUB_USER, password: GITHUB_TOKEN }
   });
 
   await gitRepo.clone();
+  await gitRepo.checkout(GITHUB_BRANCH);
   await gitRepo.appendFile(README_FILEPATH, tableOfContentsItem);
   await gitRepo.createFile(markdownPath, markdownDocument);
 
@@ -71,7 +73,7 @@ module.exports.handler = async (event) => {
     uuid,
     title,
     ingredients,
-    ingredients,
+    directions,
     tags,
     markdownPath,
     hash,

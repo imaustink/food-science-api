@@ -1,5 +1,5 @@
-const { dynamoClient } = require("../utils/aws");
-const { DynamoDBModel } = require("../utils/dynamo-db-model");
+const { dynamoClient } = require("../aws/dynamo");
+const { DynamoDBModel } = require("./base-model");
 
 const { RECIPES_TABLE_NAME } = process.env;
 

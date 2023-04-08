@@ -16,7 +16,7 @@ class GitRepo {
   }) {
     this.dir = dir;
     this.url = url;
-    this.branch = branch;
+    this.ref = branch;
     this.credentials = credentials;
   }
 
@@ -40,32 +40,34 @@ class GitRepo {
   }
 
   async deleteFile(filepath) {
-    await fs.promises.rm(filepath, { recursive: true })
-    await git.add({ fs, dir: this.dir, filepath });
+    await fs.promises.rm(path.join(this.dir, filepath));
+    await git.remove({ fs, dir: this.dir, filepath });
   }
 
   async appendFile(filepath, contents) {
     // TODO check for existing file
     // This would require refactoring update recipe endpoint as it relies on this method's ability to overwrite files
     // TODO validate contents
-    await fs.promises.appendFile(path.join(this.dir, filepath), contents, "utf8")
+    await fs.promises.appendFile(path.join(this.dir, filepath), contents, "utf8");
     await git.add({ fs, dir: this.dir, filepath });
   }
 
   async replaceFileContent(filepath, find, replace) {
     // TODO check for existing file
     // TODO validate contents
-    const originalFileContents = await fs.promises.readFile(filepath)
+    const originalFileContents = await fs.promises.readFile(path.join(this.dir, filepath), "utf8");
     const updatedFileContents = originalFileContents.replace(find, replace);
 
     await fs.promises.writeFile(path.join(this.dir, filepath), updatedFileContents, "utf8");
-    await git.add({ fs, dir: repoPath, filepath: filepath });
+    await git.add({ fs, dir: this.dir, filepath: filepath });
   }
 
-  async checkout() {
+  async checkout(ref) {
+    this.ref = ref;
     await git.checkout({
       fs,
-      ref: this.branch
+      ref,
+      dir: this.dir
     })
   }
 
@@ -85,7 +87,7 @@ class GitRepo {
       http,
       dir: this.dir,
       remote: 'origin',
-      ref: this.branch,
+      ref: this.ref,
       onAuth: () => this.credentials,
     });
     return result;
@@ -95,6 +97,16 @@ class GitRepo {
     await fs.promises.rm(this.dir, {
       recursive: true
     });
+  }
+
+  async log(depth) {
+    const commits = await git.log({
+      fs,
+      dir: this.dir,
+      depth,
+      ref: this.ref
+    })
+    return commits;
   }
 }
 

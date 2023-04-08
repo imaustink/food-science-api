@@ -4,14 +4,15 @@ const { Request } = require("../../utils/request");
 const { Response } = require("../../utils/response");
 const { recipesModel } = require("../../models/recipes");
 const { encodeURL } = require("../../utils/formatting");
-const { generateRecipeMarkdown } = require("../../utils/markdown");
+const { generateRecipeMarkdown } = require("../../markdown/markdown");
 
-const { GitRepo } = require("../../utils/git");
+const { GitRepo } = require("../../git/git");
 
 const {
   GITHUB_USER,
-  GITHUB_PASSWORD,
+  GITHUB_TOKEN,
   GITHUB_REPO,
+  GITHUB_BRANCH,
   README_FILEPATH,
   RECIPES_DIRECTORY
 } = process.env;
@@ -44,11 +45,12 @@ module.exports.handler = async (event) => {
 
   const gitRepo = new GitRepo({
     url: GITHUB_REPO,
-    branch: "master",
-    credentials: { username: GITHUB_USER, password: GITHUB_PASSWORD }
+    branch: GITHUB_BRANCH,
+    credentials: { username: GITHUB_USER, password: GITHUB_TOKEN }
   });
 
   await gitRepo.clone();
+  await gitRepo.checkout(GITHUB_BRANCH);
 
   // Special characters break GH pages default theme
   const markdownFilename = encodeURL(title + ".md");
@@ -59,7 +61,6 @@ module.exports.handler = async (event) => {
     // TODO create redirect?
     const currentTableOfContentsItem = `- [${oldRecipe.title}](${oldRecipe.markdownPath})\n`;
     const updatedTableOfContentsItem = `- [${title}](${updatedMarkdownPath})\n`;
-
     await gitRepo.replaceFileContent(README_FILEPATH, currentTableOfContentsItem, updatedTableOfContentsItem);
     await gitRepo.deleteFile(oldRecipe.markdownPath);
   }
@@ -83,7 +84,7 @@ module.exports.handler = async (event) => {
     await gitRepo.createFile(updatedMarkdownPath, markdownDocument);
   }
 
-  const hash = await gitRepo.commit(`Added recipe: ${title}`, {
+  const hash = await gitRepo.commit(`Updated recipe: ${title}`, {
     name,
     email,
   });
@@ -91,7 +92,11 @@ module.exports.handler = async (event) => {
   await gitRepo.push();
   await gitRepo.cleanup();
 
-  const updatedRecipe = { ...recipe, hash };
+  const updatedRecipe = {
+    ...recipe,
+    markdownPath: updatedMarkdownPath,
+    hash
+  };
 
   // NOTE: We can't rollback so we should only update when changes are successful
   await recipesModel.put(updatedRecipe);
