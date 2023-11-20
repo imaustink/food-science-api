@@ -33,6 +33,14 @@ functions:
           method: post
           cors: true
 
+  resetPassword:
+    handler: handlers/users/reset-password.handler
+    events:
+      - http:
+          path: reset-password
+          method: post
+          cors: true
+
   createUser:
     handler: handlers/users/create.handler
     events:
